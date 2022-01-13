@@ -10,7 +10,7 @@ use once_cell::sync::Lazy;
 
 
 pub enum Bind {
-    NormalBind(bool, BindHandler), // bool for propagating original key event or not
+    NormalBind(BindHandler), // bool for propagating original key event or not
     BlockBind(BlockBindHandler),
     BlockableBind(BlockableBindHandler),
 }

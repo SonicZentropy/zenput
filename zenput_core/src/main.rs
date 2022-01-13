@@ -34,35 +34,35 @@ fn main() {
     //});
 
 
-    AKey.bind(true, || {
-        println!("In AKey.Bind()");
+    AKey.bind(|| {
         if AKey.is_pressed() {
-            println!("Pressing PKey because A was pressedqq");
-            PKey.press(true);
+            PKey.press();
         } else {
+            println!("In AKey.Bind()");
+            println!("Pressing PKey because A was pressedqq");
             //dbg!("Releasing PKey because A was released");
-            PKey.release(true);
+            PKey.release();
         }
     });
 
-    SKey.bind(false,  || {
+    SKey.bind(|| {
         println!("In SKey.Bind()");
         if SKey.is_pressed() {
             println!("NOT Pressing PKey because S was pressedqq");
-            PKey.press(false);
+            PKey.press();
         } else {
             //dbg!("Releasing PKey because A was released");
-            PKey.release(false);
+            PKey.release();
         }
     });
 
 
 
-    DKey.bind(false, || {
+    DKey.bind(|| {
         while DKey.is_pressed() {
-            QKey.press(false);
+            QKey.press();
             sleep(Duration::from_millis(50));
-            QKey.release(false);
+            QKey.release();
         }
     });
 

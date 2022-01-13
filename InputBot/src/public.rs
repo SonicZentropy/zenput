@@ -4,6 +4,135 @@ use std::{thread::sleep, time::Duration};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+
+
+impl KeybdKey {
+    pub fn bind<F: Fn() + Send + Sync + 'static>(self, callback: F) {
+        KEYBD_BINDS
+            .lock()
+            .unwrap()
+            .insert(self, Bind::NormalBind(Arc::new(callback)));
+    }
+
+    pub fn block_bind<F: Fn() + Send + Sync + 'static>(self, callback: F) {
+        KEYBD_BINDS
+            .lock()
+            .unwrap()
+            .insert(self, Bind::BlockBind(Arc::new(callback)));
+    }
+
+    pub fn blockable_bind<F: Fn() -> BlockInput + Send + Sync + 'static>(self, callback: F) {
+        KEYBD_BINDS
+            .lock()
+            .unwrap()
+            .insert(self, Bind::BlockableBind(Arc::new(callback)));
+    }
+
+    pub fn bind_all<F: Fn(KeybdKey) + Send + Sync + Copy + 'static>(callback: F) {
+        for key in KeybdKey::iter() {
+            let fire = move || {
+                callback(key);
+            };
+
+            KEYBD_BINDS
+                .lock()
+                .unwrap()
+                .insert(key, Bind::NormalBind(Arc::new(fire)));
+        }
+    }
+
+    pub fn unbind(self) {
+        KEYBD_BINDS.lock().unwrap().remove(&self);
+    }
+}
+
+
+
+pub fn from_keybd_key(k: KeybdKey) -> Option<char> {
+    match k {
+        KeybdKey::AKey => Some('a'),
+        KeybdKey::BKey => Some('b'),
+        KeybdKey::CKey => Some('c'),
+        KeybdKey::DKey => Some('d'),
+        KeybdKey::EKey => Some('e'),
+        KeybdKey::FKey => Some('f'),
+        KeybdKey::GKey => Some('g'),
+        KeybdKey::HKey => Some('h'),
+        KeybdKey::IKey => Some('i'),
+        KeybdKey::JKey => Some('j'),
+        KeybdKey::KKey => Some('k'),
+        KeybdKey::LKey => Some('l'),
+        KeybdKey::MKey => Some('m'),
+        KeybdKey::NKey => Some('n'),
+        KeybdKey::OKey => Some('o'),
+        KeybdKey::PKey => Some('p'),
+        KeybdKey::QKey => Some('q'),
+        KeybdKey::RKey => Some('r'),
+        KeybdKey::SKey => Some('s'),
+        KeybdKey::TKey => Some('t'),
+        KeybdKey::UKey => Some('u'),
+        KeybdKey::VKey => Some('v'),
+        KeybdKey::WKey => Some('w'),
+        KeybdKey::XKey => Some('x'),
+        KeybdKey::YKey => Some('y'),
+        KeybdKey::ZKey => Some('z'),
+        KeybdKey::Numpad0Key => Some('0'),
+        KeybdKey::Numpad1Key => Some('1'),
+        KeybdKey::Numpad2Key => Some('2'),
+        KeybdKey::Numpad3Key => Some('3'),
+        KeybdKey::Numpad4Key => Some('4'),
+        KeybdKey::Numpad5Key => Some('5'),
+        KeybdKey::Numpad6Key => Some('6'),
+        KeybdKey::Numpad7Key => Some('7'),
+        KeybdKey::Numpad8Key => Some('8'),
+        KeybdKey::Numpad9Key => Some('9'),
+        KeybdKey::Numrow0Key => Some('0'),
+        KeybdKey::Numrow1Key => Some('1'),
+        KeybdKey::Numrow2Key => Some('2'),
+        KeybdKey::Numrow3Key => Some('3'),
+        KeybdKey::Numrow4Key => Some('4'),
+        KeybdKey::Numrow5Key => Some('5'),
+        KeybdKey::Numrow6Key => Some('6'),
+        KeybdKey::Numrow7Key => Some('7'),
+        KeybdKey::Numrow8Key => Some('8'),
+        KeybdKey::Numrow9Key => Some('9'),
+        _ => None
+    }
+}
+
+pub fn get_keybd_key(c: char) -> Option<KeybdKey> {
+    match c {
+        ' ' => Some(KeybdKey::SpaceKey),
+        'A' | 'a' => Some(KeybdKey::AKey),
+        'B' | 'b' => Some(KeybdKey::BKey),
+        'C' | 'c' => Some(KeybdKey::CKey),
+        'D' | 'd' => Some(KeybdKey::DKey),
+        'E' | 'e' => Some(KeybdKey::EKey),
+        'F' | 'f' => Some(KeybdKey::FKey),
+        'G' | 'g' => Some(KeybdKey::GKey),
+        'H' | 'h' => Some(KeybdKey::HKey),
+        'I' | 'i' => Some(KeybdKey::IKey),
+        'J' | 'j' => Some(KeybdKey::JKey),
+        'K' | 'k' => Some(KeybdKey::KKey),
+        'L' | 'l' => Some(KeybdKey::LKey),
+        'M' | 'm' => Some(KeybdKey::MKey),
+        'N' | 'n' => Some(KeybdKey::NKey),
+        'O' | 'o' => Some(KeybdKey::OKey),
+        'P' | 'p' => Some(KeybdKey::PKey),
+        'Q' | 'q' => Some(KeybdKey::QKey),
+        'R' | 'r' => Some(KeybdKey::RKey),
+        'S' | 's' => Some(KeybdKey::SKey),
+        'T' | 't' => Some(KeybdKey::TKey),
+        'U' | 'u' => Some(KeybdKey::UKey),
+        'V' | 'v' => Some(KeybdKey::VKey),
+        'W' | 'w' => Some(KeybdKey::WKey),
+        'X' | 'x' => Some(KeybdKey::XKey),
+        'Y' | 'y' => Some(KeybdKey::YKey),
+        'Z' | 'z' => Some(KeybdKey::ZKey),
+        _ => None,
+    }
+}
+
 pub enum BlockInput {
     Block,
     DontBlock,
@@ -108,134 +237,6 @@ pub enum KeybdKey {
 
 
 
-impl KeybdKey {
-    pub fn bind<F: Fn() + Send + Sync + 'static>(self, should_propagate: bool,  callback: F) {
-        KEYBD_BINDS
-            .lock()
-            .unwrap()
-            .insert(self, Bind::NormalBind(should_propagate, Arc::new(callback)));
-    }
-
-    pub fn block_bind<F: Fn() + Send + Sync + 'static>(self, callback: F) {
-        KEYBD_BINDS
-            .lock()
-            .unwrap()
-            .insert(self, Bind::BlockBind(Arc::new(callback)));
-    }
-
-    pub fn blockable_bind<F: Fn() -> BlockInput + Send + Sync + 'static>(self, callback: F) {
-        KEYBD_BINDS
-            .lock()
-            .unwrap()
-            .insert(self, Bind::BlockableBind(Arc::new(callback)));
-    }
-
-    pub fn bind_all<F: Fn(KeybdKey) + Send + Sync + Copy + 'static>(callback: F) {
-        for key in KeybdKey::iter() {
-            let fire = move || {
-                callback(key);
-            };
-
-            KEYBD_BINDS
-                .lock()
-                .unwrap()
-                .insert(key, Bind::NormalBind(true, Arc::new(fire)));
-        }
-    }
-
-    pub fn unbind(self) {
-        KEYBD_BINDS.lock().unwrap().remove(&self);
-    }
-}
-
-
-
-pub fn from_keybd_key(k: KeybdKey) -> Option<char> {
-    match k {
-        KeybdKey::AKey => Some('a'),
-        KeybdKey::BKey => Some('b'),
-        KeybdKey::CKey => Some('c'),
-        KeybdKey::DKey => Some('d'),
-        KeybdKey::EKey => Some('e'),
-        KeybdKey::FKey => Some('f'),
-        KeybdKey::GKey => Some('g'),
-        KeybdKey::HKey => Some('h'),
-        KeybdKey::IKey => Some('i'),
-        KeybdKey::JKey => Some('j'),
-        KeybdKey::KKey => Some('k'),
-        KeybdKey::LKey => Some('l'),
-        KeybdKey::MKey => Some('m'),
-        KeybdKey::NKey => Some('n'),
-        KeybdKey::OKey => Some('o'),
-        KeybdKey::PKey => Some('p'),
-        KeybdKey::QKey => Some('q'),
-        KeybdKey::RKey => Some('r'),
-        KeybdKey::SKey => Some('s'),
-        KeybdKey::TKey => Some('t'),
-        KeybdKey::UKey => Some('u'),
-        KeybdKey::VKey => Some('v'),
-        KeybdKey::WKey => Some('w'),
-        KeybdKey::XKey => Some('x'),
-        KeybdKey::YKey => Some('y'),
-        KeybdKey::ZKey => Some('z'),
-        KeybdKey::Numpad0Key => Some('0'),
-        KeybdKey::Numpad1Key => Some('1'),
-        KeybdKey::Numpad2Key => Some('2'),
-        KeybdKey::Numpad3Key => Some('3'),
-        KeybdKey::Numpad4Key => Some('4'),
-        KeybdKey::Numpad5Key => Some('5'),
-        KeybdKey::Numpad6Key => Some('6'),
-        KeybdKey::Numpad7Key => Some('7'),
-        KeybdKey::Numpad8Key => Some('8'),
-        KeybdKey::Numpad9Key => Some('9'),
-        KeybdKey::Numrow0Key => Some('0'),
-        KeybdKey::Numrow1Key => Some('1'),
-        KeybdKey::Numrow2Key => Some('2'),
-        KeybdKey::Numrow3Key => Some('3'),
-        KeybdKey::Numrow4Key => Some('4'),
-        KeybdKey::Numrow5Key => Some('5'),
-        KeybdKey::Numrow6Key => Some('6'),
-        KeybdKey::Numrow7Key => Some('7'),
-        KeybdKey::Numrow8Key => Some('8'),
-        KeybdKey::Numrow9Key => Some('9'),
-        _ => None
-    }
-}
-
-pub fn get_keybd_key(c: char) -> Option<KeybdKey> {
-    match c {
-        ' ' => Some(KeybdKey::SpaceKey),
-        'A' | 'a' => Some(KeybdKey::AKey),
-        'B' | 'b' => Some(KeybdKey::BKey),
-        'C' | 'c' => Some(KeybdKey::CKey),
-        'D' | 'd' => Some(KeybdKey::DKey),
-        'E' | 'e' => Some(KeybdKey::EKey),
-        'F' | 'f' => Some(KeybdKey::FKey),
-        'G' | 'g' => Some(KeybdKey::GKey),
-        'H' | 'h' => Some(KeybdKey::HKey),
-        'I' | 'i' => Some(KeybdKey::IKey),
-        'J' | 'j' => Some(KeybdKey::JKey),
-        'K' | 'k' => Some(KeybdKey::KKey),
-        'L' | 'l' => Some(KeybdKey::LKey),
-        'M' | 'm' => Some(KeybdKey::MKey),
-        'N' | 'n' => Some(KeybdKey::NKey),
-        'O' | 'o' => Some(KeybdKey::OKey),
-        'P' | 'p' => Some(KeybdKey::PKey),
-        'Q' | 'q' => Some(KeybdKey::QKey),
-        'R' | 'r' => Some(KeybdKey::RKey),
-        'S' | 's' => Some(KeybdKey::SKey),
-        'T' | 't' => Some(KeybdKey::TKey),
-        'U' | 'u' => Some(KeybdKey::UKey),
-        'V' | 'v' => Some(KeybdKey::VKey),
-        'W' | 'w' => Some(KeybdKey::WKey),
-        'X' | 'x' => Some(KeybdKey::XKey),
-        'Y' | 'y' => Some(KeybdKey::YKey),
-        'Z' | 'z' => Some(KeybdKey::ZKey),
-        _ => None,
-    }
-}
-
-
 pub struct KeySequence(pub &'static str);
 
 impl KeySequence {
@@ -249,13 +250,13 @@ impl KeySequence {
                 get_keybd_key(c)
             } {
                 if uppercase {
-                    KeybdKey::LShiftKey.press(true);
+                    KeybdKey::LShiftKey.press();
                 }
-                keybd_key.press(true);
+                keybd_key.press();
                 sleep(Duration::from_millis(20));
-                keybd_key.release(true);
+                keybd_key.release();
                 if uppercase {
-                    KeybdKey::LShiftKey.release(true);
+                    KeybdKey::LShiftKey.release();
                 }
             };
         }
@@ -278,11 +279,11 @@ pub struct MouseCursor;
 pub struct MouseWheel;
 
 impl MouseButton {
-    pub fn bind<F: Fn() + Send + Sync + 'static>(self, should_propagate: bool, callback: F) {
+    pub fn bind<F: Fn() + Send + Sync + 'static>(self, callback: F) {
         MOUSE_BINDS
             .lock()
             .unwrap()
-            .insert(self, Bind::NormalBind(should_propagate, Arc::new(callback)));
+            .insert(self, Bind::NormalBind(Arc::new(callback)));
     }
 
     pub fn block_bind<F: Fn() + Send + Sync + 'static>(self, callback: F) {
