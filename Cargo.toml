@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "InputBot",
+    "zenput_core"
+]
