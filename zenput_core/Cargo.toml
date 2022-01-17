@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 inputbot = { path = "../InputBot" }
-#inputbot = "0.5.1"
+ds-transcriber = "0.1.3"

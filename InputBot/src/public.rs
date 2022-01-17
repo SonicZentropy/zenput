@@ -7,11 +7,11 @@ use strum_macros::EnumIter;
 
 
 impl KeybdKey {
-    pub fn bind<F: Fn() + Send + Sync + 'static>(self, callback: F) {
+    pub fn bind<F: Fn() + Send + Sync + 'static>(self, should_propagate: bool, callback: F) {
         KEYBD_BINDS
             .lock()
             .unwrap()
-            .insert(self, Bind::NormalBind(Arc::new(callback)));
+            .insert(self, Bind::NormalBind(should_propagate, Arc::new(callback)));
     }
 
     pub fn block_bind<F: Fn() + Send + Sync + 'static>(self, callback: F) {
@@ -37,7 +37,7 @@ impl KeybdKey {
             KEYBD_BINDS
                 .lock()
                 .unwrap()
-                .insert(key, Bind::NormalBind(Arc::new(fire)));
+                .insert(key, Bind::NormalBind(true, Arc::new(fire)));
         }
     }
 
@@ -283,7 +283,7 @@ impl MouseButton {
         MOUSE_BINDS
             .lock()
             .unwrap()
-            .insert(self, Bind::NormalBind(Arc::new(callback)));
+            .insert(self, Bind::NormalBind(true, Arc::new(callback)));
     }
 
     pub fn block_bind<F: Fn() + Send + Sync + 'static>(self, callback: F) {

@@ -19,8 +19,18 @@ static MOUSE_HHOOK: Lazy<AtomicPtr<HHOOK__>> = Lazy::new(AtomicPtr::default);
 static DO_NOT_PROPAGATE: isize = 1;
 
 impl KeybdKey {
+	pub fn forward_to(self, bound_virtual_key: KeybdKey) {
+		if self.is_pressed() {
+			bound_virtual_key.press();
+		} else {
+			bound_virtual_key.release();
+		}
+	}
+
 	pub fn is_pressed(self) -> bool {
-		(unsafe { GetAsyncKeyState(u64::from(self) as i32) } >> 15) != 0
+		let windows_is_pressed = (unsafe { GetAsyncKeyState(u64::from(self) as i32) } >> 15) != 0;
+
+		windows_is_pressed || INTERNAL_KEY_CACHE.lock().unwrap().contains(&self)
 	}
 
 	pub fn is_toggled(self) -> bool {
@@ -29,12 +39,13 @@ impl KeybdKey {
 
 	// Presses VIRTUAL KEY only, not the real one, do not put should_prop in here
 	pub fn press(self) {
-		println!("In press");
 		send_keybd_input(KEYEVENTF_SCANCODE, self);
 	}
 
 	pub fn release(self) {
 		send_keybd_input(KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, self);
+		//remove from pressed keys cache
+		INTERNAL_KEY_CACHE.lock().unwrap().remove(&self);
 	}
 }
 
@@ -49,33 +60,35 @@ pub fn handle_input_events() {
 	unsafe { GetMessageW(&mut msg, 0 as HWND, 0, 0) };
 }
 
-unsafe extern "system" fn keybd_proc(code: c_int, w_param: WPARAM, l_param: LPARAM) -> LRESULT {
-	//if w_param as u32 == 256 { // key down, 257 is up
-	//    println!("In keybd_proc with code {} w_param {} l_param {}", &code, &w_param, &l_param);
-	//}
+#[allow(non_snake_case)]
+unsafe fn vkCode_to_keybd_key(l_param: &LPARAM) -> KeybdKey {
+	KeybdKey::from(u64::from(
+		(*(*l_param as *const KBDLLHOOKSTRUCT)).vkCode,
+	))
+}
 
+unsafe extern "system" fn keybd_proc(code: c_int, w_param: WPARAM, l_param: LPARAM) -> LRESULT {
 	if KEYBD_BINDS.lock().unwrap().is_empty() {
 		unset_hook(&*KEYBD_HHOOK);
 	} else if w_param as u32 == WM_KEYDOWN {
 		if let Some(bind) = KEYBD_BINDS
 			.lock()
 			.unwrap()
-			.get_mut(&KeybdKey::from(u64::from(
-				(*(l_param as *const KBDLLHOOKSTRUCT)).vkCode,
-			)))
+			.get_mut(&vkCode_to_keybd_key(&l_param))
 		{
-			println!("Keyboard had bind");
-
 			match bind {
-				Bind::NormalBind(cb) => {
-					println!("Spawning with should_propagate = true");
+				Bind::NormalBind(should_propagate, cb) => {
 					let cb = Arc::clone(cb);
-					let _ = spawn(move || cb()); //this sends the virtual input but does NOT send the actual key you pressed
+					spawn(move || cb()); //this sends the virtual input but does NOT send the actual key you pressed
 
-					//joinhandle.join().unwrap();
-
-					return DO_NOT_PROPAGATE;
-					//return CallNextHookEx(null_mut(), code, w_param, l_param);
+					if !*should_propagate {
+						//set keybind in static event thinger
+						INTERNAL_KEY_CACHE.lock()
+						                  .expect("Pressed key cache mutex broken")
+						                  .insert(vkCode_to_keybd_key(&l_param));
+						//Stop the rest of windows event chain from receiving the original keypress
+						return DO_NOT_PROPAGATE;
+					}
 				}
 				Bind::BlockBind(cb) => {
 					let cb = Arc::clone(cb);
@@ -88,10 +101,6 @@ unsafe extern "system" fn keybd_proc(code: c_int, w_param: WPARAM, l_param: LPAR
 					}
 				}
 			}
-		} else {
-			//Any key but A will be this
-			println!("Keyboard binds doesn't have bind");
-			//return CallNextHookEx(null_mut(), code, w_param, l_param);
 		}
 	}
 	return CallNextHookEx(null_mut(), code, w_param, l_param);
@@ -121,9 +130,6 @@ fn send_keybd_input(flags: u32, key_code: KeybdKey) {
 			})
 		},
 	};
-
-	println!("In send_keybd_input sending!");
-	dbg!(key_code);
 
 	unsafe { SendInput(1, &mut input as LPINPUT, size_of::<INPUT>() as c_int) };
 }
@@ -158,7 +164,7 @@ unsafe extern "system" fn mouse_proc(code: c_int, w_param: WPARAM, l_param: LPAR
 			println!("Mouse has bind");
 
 			match bind {
-				Bind::NormalBind(cb) => {
+				Bind::NormalBind(_, cb) => {
 					let cb = Arc::clone(cb);
 					spawn(move || cb());
 					return CallNextHookEx(null_mut(), code, w_param, l_param);
