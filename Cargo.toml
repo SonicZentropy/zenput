@@ -2,5 +2,8 @@
 
 members = [
     "InputBot",
-    "zenput_core"
+    "zenput_core",
+    "ds-transcriber"
 ]
+
+

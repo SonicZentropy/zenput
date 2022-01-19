@@ -35,8 +35,7 @@ static SEND_DISPLAY: Lazy<AtomicPtr<Display>> = Lazy::new(|| {
 });
 static FAKE_DEVICE: Lazy<Mutex<uinput::Device>> = Lazy::new(|| {
     Mutex::new(
-        uinput::default()
-            .unwrap()
+        uinput::default()?
             .name("inputbot")
             .unwrap()
             .event(uinput::event::Keyboard::All)
@@ -63,13 +62,14 @@ static FAKE_DEVICE: Lazy<Mutex<uinput::Device>> = Lazy::new(|| {
             .unwrap()
             .create()
             .unwrap(),
-    )
+    );
+
 });
 
 
 /// Requests the fake device to be generated.
-/// 
-/// Can be called before using the fake device to prevent it from 
+///
+/// Can be called before using the fake device to prevent it from
 /// building when you first try to use it.
 pub fn init_device() {
     FAKE_DEVICE.lock().unwrap();
@@ -77,8 +77,16 @@ pub fn init_device() {
 
 
 impl KeybdKey {
+    pub fn forward_to(self, bound_virtual_key: KeybdKey) {
+        if self.is_pressed() {
+            bound_virtual_key.press();
+        } else {
+            bound_virtual_key.release();
+        }
+    }
+
     pub fn is_pressed(self) -> bool {
-        *KEY_STATES.lock().unwrap().entry(self).or_insert(false)
+        *KEY_STATES.lock().unwrap().entry(self).or_insert(false);
     }
 
     pub fn press(self) {
